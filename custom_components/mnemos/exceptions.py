@@ -2,12 +2,15 @@ from __future__ import annotations
 
 
 class MnemosError(Exception):
+    pass
 
 
 class MnemosConnectionError(MnemosError):
+    pass
 
 
 class MnemosAuthError(MnemosError):
+    pass
 
 
 class MnemosApiError(MnemosError):
@@ -19,3 +22,4 @@ class MnemosApiError(MnemosError):
 
 
 class MnemosUnsupportedMedia(MnemosError):
+    pass
