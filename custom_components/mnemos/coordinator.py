@@ -12,10 +12,8 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 
 from .api import MnemosClient
 from .const import (
-    CONF_SCAN_INTERVAL,
     DATA_HEALTH,
     DATA_MODEL,
-    DEFAULT_SCAN_INTERVAL,
     DOMAIN,
 )
 from .exceptions import (
