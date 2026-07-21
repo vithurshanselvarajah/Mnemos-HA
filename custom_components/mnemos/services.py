@@ -6,7 +6,12 @@ import time
 from typing import Any
 
 import voluptuous as vol
-from homeassistant.core import HomeAssistant, ServiceCall, ServiceResponse
+from homeassistant.core import (
+    HomeAssistant,
+    ServiceCall,
+    ServiceResponse,
+    SupportsResponse,
+)
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers import config_validation as cv
 from homeassistant.util import slugify
@@ -124,13 +129,17 @@ async def _dispatch_identify(call: ServiceCall) -> ServiceResponse:
 
     matched = [_coerce_match(m) for m in (result.get("recognized") or [])]
     has_unknown = bool(result.get("unknown_faces"))
+    top_confidence = matched[0][ATTR_CONFIDENCE] if matched else 0.0
+    top_name = matched[0][ATTR_NAME] if matched else ""
 
-    response: ServiceResponse = {
+    payload: ServiceResponse = {
         ATTR_PERSONS: matched,
+        ATTR_NAME: top_name,
+        ATTR_CONFIDENCE: top_confidence,
         ATTR_UNKNOWN: has_unknown,
         ATTR_TOOK_MS: took_ms,
     }
-    state.set_last_identify(response)
+    state.set_last_identify(payload)
 
     if matched:
         top = matched[0]
@@ -148,7 +157,8 @@ async def _dispatch_identify(call: ServiceCall) -> ServiceResponse:
             has_unknown,
             took_ms,
         )
-    return response
+
+    return {"result": payload}
 
 
 async def _dispatch_refresh(call: ServiceCall) -> None:
@@ -157,14 +167,18 @@ async def _dispatch_refresh(call: ServiceCall) -> None:
 
 
 def async_register_services(hass: HomeAssistant) -> None:
-    async def identify(call: ServiceCall) -> None:
-        await _dispatch_identify(call)
+    async def identify(call: ServiceCall) -> ServiceResponse:
+        return await _dispatch_identify(call)
 
     async def refresh(call: ServiceCall) -> None:
         await _dispatch_refresh(call)
 
     hass.services.async_register(
-        DOMAIN, SERVICE_IDENTIFY, identify, schema=IDENTIFY_SCHEMA
+        DOMAIN,
+        SERVICE_IDENTIFY,
+        identify,
+        schema=IDENTIFY_SCHEMA,
+        supports_response=SupportsResponse.ONLY,
     )
     hass.services.async_register(DOMAIN, SERVICE_REFRESH, refresh)
 
