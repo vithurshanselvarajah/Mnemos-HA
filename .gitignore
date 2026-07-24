@@ -37,3 +37,4 @@ config/
 .idea/
 *.swp
 .DS_Store
+scripts/build_brand.py

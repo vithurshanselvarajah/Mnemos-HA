@@ -49,5 +49,5 @@ MODEL_KEY_NAME: Final = "name"
 MODEL_KEY_EMBEDDING_DIM: Final = "embedding_dim"
 MODEL_KEY_DET_SIZE: Final = "det_size"
 
-MANUFACTURER: Final = "Mnemos"
-MODEL_NAME: Final = "Mnemos Face Recognition Backend"
+MANUFACTURER: Final = "Vithurshan Selvarajah"
+MODEL_NAME: Final = "Mnemos Face Recognition"
