@@ -10,6 +10,7 @@ from homeassistant.core import HomeAssistant
 from .const import (
     CONF_API_KEY,
     DATA_HEALTH,
+    DATA_INBOX,
     DATA_MODEL,
 )
 from .state import get_entry_state
@@ -41,6 +42,7 @@ async def async_get_config_entry_diagnostics(
         "backend": {
             "health": data.get(DATA_HEALTH),
             "model": data.get(DATA_MODEL),
+            "inbox": data.get(DATA_INBOX),
         },
         "last_identify": state.last_identify,
     }

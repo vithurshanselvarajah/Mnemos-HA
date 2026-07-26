@@ -9,19 +9,18 @@ from homeassistant.components.binary_sensor import (
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, CONF_PORT
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import (
     DATA_HEALTH,
     DOMAIN,
+    HEALTH_KEY_PROVIDER,
     HEALTH_KEY_STATUS,
     HEALTH_KEY_VECTOR_DB,
-    MANUFACTURER,
-    MODEL_NAME,
 )
 from .coordinator import MnemosCoordinator
 from .state import get_entry_state
+from .sensor import _device_info
 
 
 async def async_setup_entry(
@@ -52,12 +51,7 @@ class MnemosReachableBinarySensor(
         super().__init__(coordinator)
         self._entry = entry
         self._attr_unique_id = f"{entry.entry_id}_reachable"
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, entry.entry_id)},
-            manufacturer=MANUFACTURER,
-            model=MODEL_NAME,
-            name=f"Mnemos ({host}:{port})",
-        )
+        self._attr_device_info = _device_info(coordinator, host, port, entry)
 
     @property
     def is_on(self) -> bool | None:
@@ -77,6 +71,7 @@ class MnemosReachableBinarySensor(
             return {
                 "version": None,
                 "model": None,
+                "provider": None,
                 "db": None,
                 "vector_db": None,
                 "reindex_in_progress": None,
@@ -90,6 +85,7 @@ class MnemosReachableBinarySensor(
         return {
             "version": health.get("version"),
             "model": health.get("model"),
+            "provider": health.get(HEALTH_KEY_PROVIDER),
             "db": health.get("db"),
             "vector_db": health.get("vector_db"),
             "reindex_in_progress": health.get("reindex_in_progress"),

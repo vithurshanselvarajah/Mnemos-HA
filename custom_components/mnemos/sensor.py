@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
-from homeassistant.components.sensor import SensorEntity
+from homeassistant.components.sensor import SensorEntity, SensorStateClass
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, CONF_PORT
 from homeassistant.core import HomeAssistant, callback
@@ -18,20 +18,42 @@ from .const import (
     ATTR_TOOK_MS,
     ATTR_UNKNOWN,
     DATA_HEALTH,
+    DATA_INBOX,
     DATA_MODEL,
     DOMAIN,
     HEALTH_KEY_MODEL,
     HEALTH_KEY_MODEL_LOADED,
+    HEALTH_KEY_PROVIDER,
     HEALTH_KEY_REINDEX_DONE,
     HEALTH_KEY_REINDEX_IN_PROGRESS,
     HEALTH_KEY_REINDEX_TOTAL,
     HEALTH_KEY_STATUS,
     HEALTH_KEY_VERSION,
+    INBOX_KEY_TOTAL,
     MANUFACTURER,
     MODEL_NAME,
 )
 from .coordinator import MnemosCoordinator
 from .state import get_entry_state
+
+
+def _device_info(
+    coordinator: MnemosCoordinator,
+    host: str,
+    port: int,
+    entry: ConfigEntry,
+) -> DeviceInfo:
+    info = DeviceInfo(
+        identifiers={(DOMAIN, entry.entry_id)},
+        manufacturer=MANUFACTURER,
+        model=MODEL_NAME,
+        name=f"Mnemos ({host}:{port})",
+    )
+    health = (coordinator.data or {}).get(DATA_HEALTH) or {}
+    version = health.get(HEALTH_KEY_VERSION)
+    if version:
+        info["sw_version"] = str(version)
+    return info
 
 
 async def async_setup_entry(
@@ -45,8 +67,9 @@ async def async_setup_entry(
             MnemosModelSensor(state.coordinator, host, port, entry),
             MnemosLastIdentifySensor(hass, entry, host, port),
             MnemosStatusSensor(state.coordinator, host, port, entry),
-            MnemosVersionSensor(state.coordinator, host, port, entry),
+            MnemosVariantSensor(state.coordinator, host, port, entry),
             MnemosModelLoadedSensor(state.coordinator, host, port, entry),
+            MnemosUnknownFacesSensor(state.coordinator, host, port, entry),
         ]
     )
 
@@ -68,12 +91,7 @@ class MnemosModelSensor(CoordinatorEntity[MnemosCoordinator], SensorEntity):
         super().__init__(coordinator)
         self._entry = entry
         self._attr_unique_id = f"{entry.entry_id}_model"
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, entry.entry_id)},
-            manufacturer=MANUFACTURER,
-            model=MODEL_NAME,
-            name=f"Mnemos ({host}:{port})",
-        )
+        self._attr_device_info = _device_info(coordinator, host, port, entry)
 
     @property
     def native_value(self) -> str | None:
@@ -137,11 +155,9 @@ class MnemosLastIdentifySensor(SensorEntity):
         self.hass = hass
         self._entry = entry
         self._attr_unique_id = f"{entry.entry_id}_last_identify"
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, entry.entry_id)},
-            manufacturer=MANUFACTURER,
-            model=MODEL_NAME,
-            name=f"Mnemos ({host}:{port})",
+        state = get_entry_state(hass, entry.entry_id)
+        self._attr_device_info = _device_info(
+            state.coordinator, host, port, entry
         )
 
     async def async_added_to_hass(self) -> None:
@@ -214,12 +230,7 @@ class _MnemosDiagnosticSensor(
         self._attr_name = name
         self._attr_icon = icon
         self._attr_unique_id = f"{entry.entry_id}_{unique_suffix}"
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, entry.entry_id)},
-            manufacturer=MANUFACTURER,
-            model=MODEL_NAME,
-            name=f"Mnemos ({host}:{port})",
-        )
+        self._attr_device_info = _device_info(coordinator, host, port, entry)
 
     def _health(self) -> dict[str, Any]:
         if not self.coordinator.data:
@@ -261,9 +272,9 @@ class MnemosStatusSensor(_MnemosDiagnosticSensor):
         return self._health().get(HEALTH_KEY_STATUS)
 
 
-class MnemosVersionSensor(_MnemosDiagnosticSensor):
-    _attr_name = "Version"
-    _attr_icon = "mdi:tag-outline"
+class MnemosVariantSensor(_MnemosDiagnosticSensor):
+    _attr_name = "Variant"
+    _attr_icon = "mdi:chip"
 
     def __init__(
         self,
@@ -277,14 +288,14 @@ class MnemosVersionSensor(_MnemosDiagnosticSensor):
             host,
             port,
             entry,
-            unique_suffix="version",
-            name="Version",
-            icon="mdi:tag-outline",
+            unique_suffix="variant",
+            name="Variant",
+            icon="mdi:chip",
         )
 
     @property
     def native_value(self) -> str | None:
-        return self._health().get(HEALTH_KEY_VERSION)
+        return self._health().get(HEALTH_KEY_PROVIDER)
 
 
 class MnemosModelLoadedSensor(_MnemosDiagnosticSensor):
@@ -317,4 +328,60 @@ class MnemosModelLoadedSensor(_MnemosDiagnosticSensor):
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        return {"model": self._health().get(HEALTH_KEY_MODEL)}
+        return {
+            "model": self._health().get(HEALTH_KEY_MODEL),
+            "provider": self._health().get(HEALTH_KEY_PROVIDER),
+        }
+
+
+class MnemosUnknownFacesSensor(
+    CoordinatorEntity[MnemosCoordinator], SensorEntity
+):
+    _attr_has_entity_name = True
+    _attr_name = "Unknown faces"
+    _attr_icon = "mdi:account-question"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_should_poll = False
+
+    def __init__(
+        self,
+        coordinator: MnemosCoordinator,
+        host: str,
+        port: int,
+        entry: ConfigEntry,
+    ) -> None:
+        super().__init__(coordinator)
+        self._entry = entry
+        self._attr_unique_id = f"{entry.entry_id}_unknown_faces"
+        self._attr_device_info = _device_info(coordinator, host, port, entry)
+
+    @property
+    def native_value(self) -> int | None:
+        if not self.coordinator.data:
+            return None
+        inbox = self.coordinator.data.get(DATA_INBOX) or {}
+        total = inbox.get(INBOX_KEY_TOTAL)
+        if total is None:
+            return None
+        try:
+            return int(total)
+        except (TypeError, ValueError):
+            return None
+
+    @property
+    def available(self) -> bool:
+        return self.native_value is not None
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        host = self._entry.data[CONF_HOST]
+        port = self._entry.data[CONF_PORT]
+        use_ssl = bool(self._entry.data.get("use_ssl", False))
+        scheme = "https" if use_ssl else "http"
+        return {
+            "inbox_url": f"{scheme}://{host}:{port}/api/v1/faces/unassigned",
+        }
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        self.async_write_ha_state()

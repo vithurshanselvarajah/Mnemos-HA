@@ -99,6 +99,13 @@ class MnemosClient:
             "GET", "/api/v1/models", timeout=_HEALTH_TIMEOUT
         )
 
+    async def unassigned_total(self) -> dict[str, Any]:
+        return await self._request_json(
+            "GET",
+            "/api/v1/faces/unassigned?page=1&page_size=1",
+            timeout=_HEALTH_TIMEOUT,
+        )
+
     async def identify(
         self,
         image_bytes: bytes,

@@ -33,6 +33,7 @@ ATTR_CONFIDENCE: Final = "confidence"
 
 DATA_HEALTH: Final = "health"
 DATA_MODEL: Final = "model"
+DATA_INBOX: Final = "inbox"
 DATA_LAST_IDENTIFY: Final = "last_identify"
 
 HEALTH_KEY_STATUS: Final = "status"
@@ -44,6 +45,9 @@ HEALTH_KEY_REINDEX_IN_PROGRESS: Final = "reindex_in_progress"
 HEALTH_KEY_REINDEX_DONE: Final = "reindex_done"
 HEALTH_KEY_REINDEX_TOTAL: Final = "reindex_total"
 HEALTH_KEY_MODEL_LOADED: Final = "model_loaded"
+HEALTH_KEY_PROVIDER: Final = "provider"
+
+INBOX_KEY_TOTAL: Final = "total"
 
 MODEL_KEY_NAME: Final = "name"
 MODEL_KEY_EMBEDDING_DIM: Final = "embedding_dim"
