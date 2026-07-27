@@ -34,7 +34,7 @@ async def watch_backend_events(
             delay = _RECONNECT_INITIAL_DELAY
         except asyncio.CancelledError:
             raise
-        except Exception as err:
+        except (OSError, aiohttp.ClientError, TimeoutError) as err:
             _LOGGER.debug("ws events: session ended (%s); retrying in %.1fs", err, delay)
         if stop_event.is_set():
             break

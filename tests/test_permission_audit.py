@@ -15,7 +15,6 @@ from __future__ import annotations
 
 import re
 
-
 # Backend endpoints that require a Full-Admin key.
 # Source of truth: mnemos-backend/app/api/* (anything using require_full_admin).
 FULL_ADMIN_PATHS = (

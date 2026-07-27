@@ -138,14 +138,62 @@ def test_services_have_descriptions():
     assert "description:" in services_yaml
 
 
-def test_no_setup_py_or_pyproject():
-    """HACS rejects an integration that ships its own setup.py / pyproject.toml —
-    it would conflict with HA's own installation."""
-    for forbidden in ("setup.py", "pyproject.toml", "setup.cfg"):
-        if (REPO_ROOT / forbidden).exists():
-            pytest.fail(
-                f"{forbidden} at repo root — HACS will not accept the integration"
-            )
+def test_pyproject_toml_present():
+    """HACS now requires a `pyproject.toml` at the repo root so it can detect
+    the project for release automation and publish metadata."""
+    pyproject = REPO_ROOT / "pyproject.toml"
+    assert pyproject.is_file(), (
+        "pyproject.toml is required at the repo root for HACS submission"
+    )
+    text = pyproject.read_text(encoding="utf-8")
+    assert "[build-system]" in text
+    assert "[project]" in text
+    assert "name" in text
+    assert "version" in text
+
+
+def test_pyproject_name_matches_domain():
+    pyproject_text = _read("pyproject.toml")
+    manifest = _read_json("custom_components/mnemos/manifest.json")
+    match = re.search(r'^name\s*=\s*"([^"]+)"', pyproject_text, re.MULTILINE)
+    assert match, "pyproject.toml must declare `name`"
+    name = match.group(1)
+    assert name.startswith(manifest["domain"]), (
+        f"pyproject.toml `name` {name!r} should start with the integration "
+        f"domain {manifest['domain']!r} (HACS uses this to associate the project)"
+    )
+
+
+def test_pyproject_version_matches_manifest():
+    """Keep pyproject.toml `version` and manifest.json `version` in sync —
+    HACS uses the manifest value but a mismatch is a smell that one is stale."""
+    pyproject_text = _read("pyproject.toml")
+    manifest = _read_json("custom_components/mnemos/manifest.json")
+    match = re.search(r'^version\s*=\s*"([^"]+)"', pyproject_text, re.MULTILINE)
+    assert match, "pyproject.toml must declare `version`"
+    assert match.group(1) == manifest["version"], (
+        f"pyproject.toml version {match.group(1)!r} does not match "
+        f"manifest.json version {manifest['version']!r}"
+    )
+
+
+def test_pyproject_runtime_deps_match_manifest():
+    """The `dependencies` list in pyproject.toml should agree with
+    `manifest.json` `requirements`."""
+    pyproject_text = _read("pyproject.toml")
+    manifest = _read_json("custom_components/mnemos/manifest.json")
+    declared = set(re.findall(r'"([a-zA-Z0-9_.\-]+[<>~=!].+?)"', pyproject_text))
+    declared_pkgs = {
+        re.split(r"[<>=!~]", d, maxsplit=1)[0].lower() for d in declared
+    }
+    manifest_pkgs = {
+        re.split(r"[<>=!~]", r, maxsplit=1)[0].lower()
+        for r in manifest.get("requirements", [])
+    }
+    missing = manifest_pkgs - declared_pkgs
+    assert not missing, (
+        f"pyproject.toml dependencies missing packages from manifest: {missing}"
+    )
 
 
 def test_iot_class_is_valid():
@@ -180,7 +228,7 @@ def test_no_test_only_packages_in_manifest_requirements():
     manifest = _read_json("custom_components/mnemos/manifest.json")
     forbidden = {"pytest", "pytest-asyncio", "pytest-aiohttp", "pytest-homeassistant-custom-components"}
     for req in manifest.get("requirements", []):
-        pkg = re.split(r"[<>=!~]", req, 1)[0].strip().lower()
+        pkg = re.split(r"[<>=!~]", req, maxsplit=1)[0].strip().lower()
         assert pkg not in forbidden, (
             f"Test-only package {pkg!r} in manifest.json requirements"
         )
@@ -191,7 +239,8 @@ def test_release_workflow_exists_or_release_docs_exist():
     - a release workflow (.github/workflows/release*.yml), OR
     - a docs page explaining how to publish.
     """
-    wf = list((REPO_ROOT / ".github" / "workflows").glob("release*.yml")) if (REPO_ROOT / ".github" / "workflows").exists() else []
+    wf_dir = REPO_ROOT / ".github" / "workflows"
+    wf = list(wf_dir.glob("release*.yml")) if wf_dir.exists() else []
     has_workflow = bool(wf)
     has_docs = (REPO_ROOT / "docs" / "HACS-Publishing.md").exists()
     assert has_workflow or has_docs, (
