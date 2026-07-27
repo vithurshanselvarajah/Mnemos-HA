@@ -65,7 +65,7 @@ class MnemosCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         except (MnemosConnectionError, MnemosApiError, ClientError) as err:
             self._last_error = str(err)
             raise UpdateFailed(str(err)) from err
-        except Exception as err:  # noqa: BLE001
+        except Exception as err:
             self._last_error = str(err)
             raise UpdateFailed(str(err)) from err
 

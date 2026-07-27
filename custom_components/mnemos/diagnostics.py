@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import timezone
+from datetime import UTC
 from typing import Any
 
 from homeassistant.components.diagnostics import async_redact_data
@@ -33,7 +33,7 @@ async def async_get_config_entry_diagnostics(
         },
         "coordinator": {
             "last_success": (
-                last_success.replace(tzinfo=timezone.utc).isoformat()
+                last_success.replace(tzinfo=UTC).isoformat()
                 if last_success
                 else None
             ),

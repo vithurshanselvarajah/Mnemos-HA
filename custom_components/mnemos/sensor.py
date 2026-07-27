@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from homeassistant.components.sensor import SensorEntity, SensorStateClass
@@ -32,6 +32,8 @@ from .const import (
     INBOX_KEY_TOTAL,
     MANUFACTURER,
     MODEL_NAME,
+    STATE_NEVER_IDENTIFIED,
+    STATE_NO_MATCH,
 )
 from .coordinator import MnemosCoordinator
 from .state import get_entry_state
@@ -181,12 +183,12 @@ class MnemosLastIdentifySensor(SensorEntity):
         state = get_entry_state(self.hass, self._entry.entry_id)
         payload = state.last_identify
         if not payload:
-            return "No identify calls yet"
+            return STATE_NEVER_IDENTIFIED
         persons = payload.get(ATTR_PERSONS) or []
         if persons:
             top = persons[0]
             return f"{top[ATTR_NAME]} ({top[ATTR_CONFIDENCE]:.0%})"
-        return "No match"
+        return STATE_NO_MATCH
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
@@ -200,7 +202,7 @@ class MnemosLastIdentifySensor(SensorEntity):
                 "took_ms": None,
             }
         return {
-            "last_run": datetime.now(timezone.utc).isoformat(),
+            "last_run": datetime.now(UTC).isoformat(),
             "persons": payload.get(ATTR_PERSONS, []),
             "unknown": bool(payload.get(ATTR_UNKNOWN, False)),
             "took_ms": payload.get(ATTR_TOOK_MS),

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import timezone
+from datetime import UTC
 
 from homeassistant.components.binary_sensor import (
     BinarySensorDeviceClass,
@@ -13,14 +13,13 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import (
     DATA_HEALTH,
-    DOMAIN,
     HEALTH_KEY_PROVIDER,
     HEALTH_KEY_STATUS,
     HEALTH_KEY_VECTOR_DB,
 )
 from .coordinator import MnemosCoordinator
-from .state import get_entry_state
 from .sensor import _device_info
+from .state import get_entry_state
 
 
 async def async_setup_entry(
@@ -92,7 +91,7 @@ class MnemosReachableBinarySensor(
             "reindex_done": health.get("reindex_done"),
             "reindex_total": health.get("reindex_total"),
             "last_success": (
-                last_success.replace(tzinfo=timezone.utc).isoformat()
+                last_success.replace(tzinfo=UTC).isoformat()
                 if last_success is not None
                 else None
             ),

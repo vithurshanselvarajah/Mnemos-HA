@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import logging
 from typing import Any
 from urllib.parse import urljoin
@@ -35,7 +34,6 @@ class MnemosClient:
         self._api_key = api_key
         scheme = "https" if use_ssl else "http"
         self._base_url = f"{scheme}://{host}:{port}"
-        self.base_url = self._base_url
 
     @property
     def api_key(self) -> str:
@@ -44,6 +42,20 @@ class MnemosClient:
     @api_key.setter
     def api_key(self, value: str) -> None:
         self._api_key = value
+
+    @property
+    def base_url(self) -> str:
+        return self._base_url
+
+    @property
+    def ws_url(self) -> str:
+        scheme = "wss" if self._base_url.startswith("https://") else "ws"
+        host_part = self._base_url.split("://", 1)[1]
+        return f"{scheme}://{host_part}/ws/events"
+
+    @property
+    def session(self) -> aiohttp.ClientSession:
+        return self._session
 
     def _auth_headers(self) -> dict[str, str]:
         return {"X-API-Key": self._api_key}
@@ -82,7 +94,7 @@ class MnemosClient:
                 if not isinstance(payload, dict):
                     raise MnemosApiError(resp.status, "expected JSON object")
                 return payload
-        except asyncio.TimeoutError as err:
+        except TimeoutError as err:
             raise MnemosConnectionError(
                 f"Timeout talking to Mnemos at {self._base_url}"
             ) from err
@@ -102,7 +114,7 @@ class MnemosClient:
     async def unassigned_total(self) -> dict[str, Any]:
         return await self._request_json(
             "GET",
-            "/api/v1/faces/unassigned?page=1&page_size=1",
+            "/api/v1/faces/unassigned?count_only=true",
             timeout=_HEALTH_TIMEOUT,
         )
 

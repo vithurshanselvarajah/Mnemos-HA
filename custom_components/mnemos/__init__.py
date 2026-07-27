@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 
 from homeassistant.config_entries import ConfigEntry
@@ -17,6 +18,7 @@ from .const import (
     DOMAIN,
 )
 from .coordinator import MnemosCoordinator
+from .events import safe_close, watch_backend_events
 from .services import async_register_services, async_unregister_services
 from .state import MnemosEntryState
 
@@ -42,11 +44,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     try:
         await coordinator.async_config_entry_first_refresh()
-    except Exception as err:  # noqa: BLE001
+    except Exception as err:
         raise ConfigEntryNotReady(str(err)) from err
 
+    stop_event = asyncio.Event()
     state = MnemosEntryState(client=client, coordinator=coordinator)
+    state.stop_event = stop_event
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = state
+
+    ws_task = hass.loop.create_task(
+        watch_backend_events(hass, client, coordinator, stop_event)
+    )
+    state.ws_task = ws_task
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
@@ -60,6 +69,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    state = hass.data.get(DOMAIN, {}).get(entry.entry_id)
+    if state is not None and getattr(state, "stop_event", None) is not None:
+        state.stop_event.set()
+    if state is not None and getattr(state, "ws_task", None) is not None:
+        await safe_close(state.ws_task)
+
     unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unloaded:
         hass.data[DOMAIN].pop(entry.entry_id, None)
