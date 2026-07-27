@@ -19,10 +19,31 @@ A HACS integration for [Mnemos](https://github.com/vithurshan-selvarajah/mnemos)
 ## Features
 
 - **`mnemos.identify` action** — send an image to Mnemos, from either a `camera.*` entity (latest still) or a local file path (e.g. a doorbell snapshot on `/share`). The action response is a slim `{persons, unknown, took_ms}` dict.
-- **`binary_sensor.mnemos_<host>_reachable`** — true when the Mnemos backend reports `status: "ok"`.
+- **`binary_sensor.mnemos_<host>_reachable`** — true when Mnemos reports `status: "ok"` **and** the vector DB is reachable. See [Reachable sensor](#reachable-sensor) for what that means in practice.
 - **`sensor.mnemos_<host>_model`** — currently active model with live reindex progress in the attributes.
 - **`sensor.mnemos_<host>_last_identify`** — last identify result, with the full payload in the attributes for easy inspection in Developer Tools.
+- **`sensor.mnemos_<host>_unknown_faces`** — count of unassigned crops in the Mnemos inbox. Polled + WebSocket-pushed so it stays in sync within ~1 s.
+- **WebSocket subscription** — the integration runs a background task that connects to Mnemos's `/ws/events` and refreshes the inbox counter on every `inbox.new_face` / `inbox.bulk_changed` event. See [WebSocket events](docs/WebSocket-Events.md).
 - Single config entry, identify-only API key is enough.
+
+## Reachable sensor
+
+`binary_sensor.mnemos_<host>_reachable` is `on` when both of these are true on the last `/healthz` response:
+
+- `status` is the literal string `"ok"`
+- `vector_db` is `true`
+
+The pgvector container is what the rest of the integration depends on for the inbox count and the model. If pgvector is down, identify will still work (it can read recent crops) but the inbox count will read as `unknown`. Use this binary sensor to drive automations like "don't try to identify if Mnemos is down for more than 2 minutes."
+
+## Documentation
+
+Full documentation lives in [docs/Home.md](docs/Home.md), including:
+
+- [Architecture](docs/Architecture.md)
+- [API key permissions](docs/API-Keys.md) (Identify-Only vs. Full-Admin)
+- [WebSocket events](docs/WebSocket-Events.md)
+- [Testing](docs/Testing.md)
+- [HACS publishing](docs/HACS-Publishing.md)
 
 ---
 
