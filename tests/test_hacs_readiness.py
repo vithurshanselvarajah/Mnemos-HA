@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import re
 from pathlib import Path
+from urllib.parse import urlparse
 
 import pytest
 
@@ -99,8 +100,17 @@ def test_codeowners_are_github_handles():
 
 def test_issue_tracker_url_is_github():
     manifest = _read_json("custom_components/mnemos/manifest.json")
-    assert "github.com" in manifest["issue_tracker"], (
+    host = urlparse(manifest["issue_tracker"]).hostname
+    assert host and (host == "github.com" or host.endswith(".github.com")), (
         "issue_tracker should be a GitHub URL so HACS can route users correctly"
+    )
+
+
+def test_documentation_url_is_github():
+    manifest = _read_json("custom_components/mnemos/manifest.json")
+    host = urlparse(manifest["documentation"]).hostname
+    assert host and (host == "github.com" or host.endswith(".github.com")), (
+        "documentation should be a GitHub URL"
     )
 
 
