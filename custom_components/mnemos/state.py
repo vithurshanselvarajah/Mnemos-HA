@@ -1,7 +1,12 @@
 from __future__ import annotations
 
+import asyncio
+import contextlib
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Callable
+from typing import Any
+
+from homeassistant.exceptions import HomeAssistantError
 
 from .api import MnemosClient
 from .coordinator import MnemosCoordinator
@@ -13,20 +18,34 @@ class MnemosEntryState:
     coordinator: MnemosCoordinator
     last_identify: dict[str, Any] | None = None
     last_identify_listeners: set[Callable[[], None]] = field(default_factory=set)
+    stop_event: asyncio.Event | None = None
+    ws_task: asyncio.Task | None = None
 
     def set_last_identify(self, payload: dict[str, Any]) -> None:
         self.last_identify = payload
         for cb in list(self.last_identify_listeners):
-            try:
+            with contextlib.suppress(Exception):
                 cb()
-            except Exception:  # noqa: BLE001
-                pass
+
+
+class MnemosEntryNotFound(HomeAssistantError):
+    """Raised when a config entry's state has not been initialised."""
+
+
+class MnemosNotConfigured(HomeAssistantError):
+    """Raised when no Mnemos entry exists in the integration domain."""
+
+
+class MnemosMultipleEntries(HomeAssistantError):
+    """Raised when an action only supports a single configured backend."""
 
 
 def get_entry_state(hass, entry_id: str) -> MnemosEntryState:
     bucket = hass.data.setdefault("mnemos", {}).get(entry_id)
     if not isinstance(bucket, MnemosEntryState):
-        raise RuntimeError(f"Mnemos entry {entry_id} is not initialised")
+        raise MnemosEntryNotFound(
+            f"Mnemos entry {entry_id} is not initialised"
+        )
     return bucket
 
 
@@ -41,14 +60,10 @@ def list_entry_states(hass) -> list[MnemosEntryState]:
 def resolve_entry_state(hass) -> MnemosEntryState:
     states = list_entry_states(hass)
     if not states:
-        from homeassistant.exceptions import HomeAssistantError 
-
-        raise HomeAssistantError("Mnemos is not configured")
+        raise MnemosNotConfigured("Mnemos is not configured")
     if len(states) > 1:
-        from homeassistant.exceptions import HomeAssistantError
-
         names = ", ".join(s.client.base_url for s in states)
-        raise HomeAssistantError(
+        raise MnemosMultipleEntries(
             f"Multiple Mnemos entries configured ({names}); this build of "
             "mnemos.identify only supports a single backend. File an issue."
         )

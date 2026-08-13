@@ -13,6 +13,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from .api import MnemosClient
 from .const import (
     DATA_HEALTH,
+    DATA_INBOX,
     DATA_MODEL,
     DOMAIN,
 )
@@ -53,9 +54,10 @@ class MnemosCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     async def _async_update_data(self) -> dict[str, Any]:
         try:
-            health, model = await asyncio.gather(
+            health, model, inbox = await asyncio.gather(
                 self.client.healthz(),
                 self.client.model_info(),
+                self.client.unassigned_total(),
             )
         except MnemosAuthError as err:
             self._last_error = f"auth: {err}"
@@ -63,13 +65,13 @@ class MnemosCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         except (MnemosConnectionError, MnemosApiError, ClientError) as err:
             self._last_error = str(err)
             raise UpdateFailed(str(err)) from err
-        except Exception as err:  # noqa: BLE001
+        except Exception as err:
             self._last_error = str(err)
             raise UpdateFailed(str(err)) from err
 
         self._last_success = datetime.utcnow()
         self._last_error = None
-        return {DATA_HEALTH: health, DATA_MODEL: model}
+        return {DATA_HEALTH: health, DATA_MODEL: model, DATA_INBOX: inbox}
 
 
 def get_coordinator(hass: HomeAssistant, entry: ConfigEntry):

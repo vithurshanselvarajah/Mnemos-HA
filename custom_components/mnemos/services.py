@@ -65,7 +65,7 @@ async def _read_camera(call: ServiceCall) -> tuple[bytes, str, str, str]:
     timeout = call.data.get(SERVICE_FIELD_TIMEOUT, DEFAULT_TIMEOUT)
     try:
         image = await async_get_image(call.hass, entity_id, timeout=timeout)
-    except Exception as err:  # noqa: BLE001
+    except Exception as err:
         raise HomeAssistantError(
             f"Failed to fetch image from {entity_id}: {err}"
         ) from err
@@ -108,9 +108,9 @@ async def _dispatch_identify(call: ServiceCall) -> ServiceResponse:
     state = resolve_entry_state(call.hass)
 
     if has_entity:
-        image_bytes, filename, content_type, source = await _read_camera(call)
+        image_bytes, filename, content_type, _source = await _read_camera(call)
     else:
-        image_bytes, filename, content_type, source = await _read_file(call)
+        image_bytes, filename, content_type, _source = await _read_file(call)
 
     started = time.monotonic()
     try:

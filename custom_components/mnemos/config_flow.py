@@ -75,7 +75,7 @@ class MnemosConfigFlow(ConfigFlow, domain=DOMAIN):
                 errors["base"] = "cannot_connect"
             except ClientError:
                 errors["base"] = "cannot_connect"
-            except Exception:  # noqa: BLE001
+            except Exception:
                 _LOGGER.exception("Unexpected error during Mnemos config flow")
                 errors["base"] = "unknown"
             else:
